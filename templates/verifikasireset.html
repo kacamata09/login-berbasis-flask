@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verifikasi</title>
+</head>
+<body>
+
+    <h2>Masukkan email atau username anda</h2>
+    <form method="POST" action="/resetpassword">
+        <table>
+            <tr><input type="text" name="email"></tr>
+        </table>
+        <input type="submit" value="Kirim">
+    </form>
+    
+
+    <h2>Masukkan Kode reset password yang dikirimkan di email anda</h2>
+    <form action="/kodereset" method="POST">
+        <table>
+            <tr>
+                <td>Email</td>
+                <td><input type="text" name="email"></td>
+            </tr>
+            <tr>
+                <td>Kode reset</td>
+                <td><input type="text" name="kode"></td>
+            </tr>
+            <tr>
+                <td>Password Baru</td>
+                <td><input type="text" name="password_baru"></td>
+            </tr>
+        </table>
+        <input type="submit" value="Kirim">
+    </form>
+    
+</body>
+</html>
