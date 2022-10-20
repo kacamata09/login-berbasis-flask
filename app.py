@@ -1,10 +1,8 @@
-from importlib.metadata import requires
-from threading import Thread
 from flask import Flask, request, jsonify, url_for, redirect, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, logout_user, login_required, current_user
 from flask_mail import Mail, Message
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 # library pendukung
@@ -59,6 +57,24 @@ def load_user(id):
     except:
         return 'maaf anda harus login dulu <a href="/">Login</a>'
 
+
+# decorator butuh token
+def akses_token(fungsi):
+    @wraps(fungsi)
+    def kunci_halaman(*args, **kwargs):
+        token = request.form.get('token')
+        # token = request.args.get('token') # bisa juga menggunakan form
+        if not token:
+            return redirect('/token')
+        try:
+            bukaToken = jwt.decode(
+                token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        except:
+            return 'maaf token anda tidak valid atau token anda udah habis masa berlakunya'
+        return fungsi(*args, **kwargs)
+    return kunci_halaman
+
+
 # models
 
 
@@ -68,6 +84,17 @@ class Pengguna(dbku.Model, UserMixin):
     username = dbku.Column(dbku.String(255), unique=True)
     password = dbku.Column(dbku.String(255))
     id_akses = dbku.Column(dbku.Integer, dbku.ForeignKey('roles.id'))
+
+    # @property
+    # def password():
+    #     raise AttributeError('anda tidak bisa mengakases atribut ini')
+
+    # @password.setter
+    # def set_password(self, password_anda):
+    #     self.password_hash = generate_password_hash(password_anda, 'sha256')
+
+    # def cek_password(self, password_anda):
+    #     return check_password_hash(self.password_hash, password_anda)
 
 
 class Roles(dbku.Model):
@@ -79,6 +106,7 @@ class Roles(dbku.Model):
 # routes sekaligus controllers
 @app.route('/')
 @login_required
+# @akses_token
 def index():
     return render_template('index.html')
 
@@ -96,8 +124,8 @@ def login():
 
                 # token = jwt.encode(
                 #     {'username': username, 'exp': datetime.now() + timedelta(days=1)})
-                # if request.args.get('next'):
-                #     return redirect(request.args.get("next"))
+                if request.args.get('next'):
+                    return redirect(request.args.get("next"))
                 return redirect(url_for('index'))
                 # return redirect(url_for("index", next=request.url))
             return 'maaf password yang anda masukkan salah'
@@ -129,7 +157,9 @@ def register():
     return render_template('register.html')
 
 
-@ app.route('/role', methods=['GET', 'POST'])
+@app.route('/role', methods=['GET', 'POST'])
+@login_required
+@akses_admin
 def role():
     if request.method == 'POST':
         role = request.form.get('role')
@@ -148,14 +178,10 @@ def halaman_admin():
 
 
 @app.route('/user')
+@login_required
 def tampilUser():
     users = Pengguna.query.all()
     return render_template('user.html', users=users)
-
-
-def send_email(app, msg):
-    with app.app_context():
-        mail.send(msg)
 
 
 @app.route('/resetpassword', methods=['POST', 'GET'])
@@ -172,7 +198,7 @@ def reset():
             kode_reset = jwt.encode(
                 {'email': email_penerima, 'exp': datetime.now() + timedelta(minutes=2)}, email_penerima, algorithm='HS256')
             # kode_reset = randint(1, 9999)
-            msg.body = f'Kode reset password anda adalah {kode_reset}'
+            msg.body = f'Apakah anda yang butuh kode reset? \nJika anda, maka dibawah ini adalah kode reset anda: \n\nKode reset password anda adalah {kode_reset}'
             mail.send(msg)
             return 'tunggu kode anda di email anda'
         return 'email anda tidak terdaftar di aplikasi'
@@ -198,12 +224,32 @@ def kode_reset():
     return render_template('resetpassword.html')
 
 
-@app.route('/ubahpassword', methods=['GET', 'POST'])
-def ubah_password():
+# @app.route('/ubahpassword', methods=['GET', 'POST'])
+# def ubah_password():
+#     if request.method == 'POST':
+#         email_user = request.args.get('email')
+
+#     return render_template('reset_password.html')
+
+@app.route('/token', methods=['POST', 'GET'])
+def verifToken():
+    return render_template('verifikasitoken.html')
+
+
+@app.route('/user/edit', methods=['POST', 'GET'])
+@login_required
+def edit_user():
     if request.method == 'POST':
-        email_user = request.args.get('email')
+        siUser = current_user
+        username = request.form.get('username')
+        email = request.form.get('email')
+        siUser.username = username
+        siUser.email = email
+        dbku.session.commit()
 
-    return render_template('reset_password.html')
+    return render_template('edituser.html')
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':
+    # dbku.create_all()
+    app.run(debug=True)
